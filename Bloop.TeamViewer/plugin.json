@@ -1,0 +1,11 @@
+{
+  "ID": "5ced0a64-e256-4a90-9d54-d9951597a564",
+  "ActionKeyword": "*",
+  "Name": "TeamViewer Plugin",
+  "Description": "TeamViewer Plugin",
+  "Author": "dstiert",
+  "Language": "csharp",
+  "Website": "https://bitbucket.org/dstiert/bloop.teamviewer",
+  "ExecuteFileName": "Bloop.TeamViewer.dll",
+  "IcoPath": "images\\icon.png"
+}
