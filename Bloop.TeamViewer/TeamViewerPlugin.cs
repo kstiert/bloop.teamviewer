@@ -1,73 +1,73 @@
-﻿using Bloop.GitHub.Shell;
-using Bloop.Plugin;
-using Octokit;
-using System;
+﻿using Bloop.Plugin;
+using Newtonsoft.Json;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
-using System.Threading.Tasks;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Windows.Controls;
 
-namespace Bloop.GitHub
+namespace Bloop.TeamViewer
 {
     public class TeamViewerPlugin : IPlugin, ISettingProvider
     {
-        private readonly IDictionary<string, IShell> _shells = new Dictionary<string, IShell>();
-        private IReadOnlyList<Repository> _repos;
+        private static readonly JsonSerializer Serializer = new JsonSerializer();
+
         private PluginInitContext _context;
+        private List<Device> _devices;
 
         public Control CreateSettingPanel()
         {
-            return new GitHubPluginSettings(_shells);
+            return new TeamViewerPluginSettings();
         }
 
         public void Init(PluginInitContext context)
         {
             _context = context;
+            _devices = new List<Device>();
             PluginSettings.LoadSettings(Path.Combine(context.CurrentPluginMetadata.PluginDirectory, "settings.json"));
-            PluginSettings.Instance.SettingsChanged = RefreshRepos;
-            RefreshRepos();
+            PluginSettings.Instance.SettingsChanged = Refresh;
 
-            foreach (var shellType in Assembly.GetExecutingAssembly().GetTypes().Where(t => typeof(IShell).IsAssignableFrom(t) && !t.IsInterface))
-            {
-                var shell = (IShell)Activator.CreateInstance(shellType);
-                _shells[shell.Name] = shell;
-            }
+            Refresh();
         }
 
         public List<Result> Query(Query query)
         {
-            if(_repos == null)
+            if(!_devices.Any())
             {
                 return OpenSettingsResult();
             }
 
-            var exact = _repos.FirstOrDefault(r => r.FullName == query.Search.Trim(' ') && query.Search.EndsWith(" "));
-
-            if (exact != null)
-            {
-                return RepoMatchResults(exact);
-            }
-            else
-            {
-                return RepoSearchResults(query);
-            }
+            return _devices.Where(d => d.Alias.ToLower().Contains(query.Search.ToLower())).Select(d =>
+                new Result
+                {
+                    Action = ctx => 
+                    {
+                        var id = d.RemoteControlId.TrimStart('r');
+                        System.Diagnostics.Process.Start($"teamviewer10://control?device={id}&authori-zation=password");
+                        return true;
+                    },
+                    Title = d.Alias,
+                    SubTitle = d.Description,
+                    IcoPath = "images\\icon.png"
+                }).ToList();
         }
 
-        public async void RefreshRepos()
+        private async void Refresh()
         {
-            try
+            var token = PluginSettings.Instance.Token;
+            if(string.IsNullOrEmpty(token))
             {
-                var client = new GitHubClient(new ProductHeaderValue("Bloop.GitHub"));
-                client.Credentials = new Credentials(PluginSettings.Instance.Token);
-                _repos = await client.Repository.GetAllForCurrent();
-            }
-            catch
-            {
-                _repos = null;
+                return;
             }
 
+            using (var client = new HttpClient())
+            {
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                var resp = await client.GetAsync("https://webapi.teamviewer.com/api/v1/devices");
+                var content = await resp.Content.ReadAsStringAsync();
+                _devices = JsonConvert.DeserializeObject<DevicesResponse>(content).Devices;
+            }              
         }
 
         private List<Result> OpenSettingsResult()
@@ -76,89 +76,9 @@ namespace Bloop.GitHub
                 {
                     Action = ctx => { _context.API.OpenSettingDialog("plugins"); return true; },
                     Title = "Open Settings",
-                    SubTitle = "Configure GitHub Plugin",
+                    SubTitle = "Configure TeamViewer Plugin",
                     IcoPath = "images\\icon.png"
                 }}.ToList();
-        }
-
-        private List<Result> RepoSearchResults(Query query)
-        {
-            var match = _repos.Where(r => r.FullName.Contains(query.Search));
-            var prefix = _context.CurrentPluginMetadata.ActionKeyword == "*" ? string.Empty : _context.CurrentPluginMetadata.ActionKeyword + " ";
-            return match.Select(r => new Result
-            {
-                Action = ctx =>
-                {
-                    _context.API.ChangeQuery($"{prefix}{r.FullName} ", true);
-                    return false;
-                },
-                Title = r.Name,
-                SubTitle = r.Owner.Login,
-                IcoPath = "Images\\repo.png"
-            }).ToList();
-        }
-
-        private List<Result> RepoMatchResults(Repository repo)
-        {
-            var results = new List<Result>();
-
-            results.Add(new Result
-            {
-                Action = ctx =>
-                {
-                    System.Diagnostics.Process.Start(repo.HtmlUrl);
-                    return true;
-                },
-                Title = "Go",
-                SubTitle = repo.HtmlUrl,
-                IcoPath = "Images\\globe.png"
-
-            });
-
-            var localPath = Path.Combine(PluginSettings.Instance.RepoRoot, repo.Name);
-            if (Directory.Exists(localPath))
-            {
-                results.Add(new Result
-                {
-                    Action = ctx =>
-                    {
-                        System.Diagnostics.Process.Start(localPath);
-                        return true;
-                    },
-                    Title = "Open Folder",
-                    SubTitle = localPath,
-                    IcoPath = "Images\\folder.png"
-                });
-
-                results.Add(new Result
-                {
-                    Action = ctx =>
-                    {
-                        _shells[PluginSettings.Instance.Shell].Launch(localPath);
-                        return true;
-                    },
-                    Title = "Open Shell",
-                    SubTitle = localPath,
-                    IcoPath = "Images\\shell.png"
-                });
-            }
-            else
-            {
-                results.Add(new Result
-                {
-                    Action = ctx =>
-                    {
-                        _shells[PluginSettings.Instance.Shell].Launch(PluginSettings.Instance.RepoRoot, 
-                            new List<string> { $"git clone {repo.CloneUrl}", $"cd {repo.Name}" } );
-                        return true;
-                    },
-                    Title = "Clone",
-                    SubTitle = localPath,
-                    IcoPath = "Images\\clone.png"
-                });
-            }
-
-            return results;
         }
     }
 }

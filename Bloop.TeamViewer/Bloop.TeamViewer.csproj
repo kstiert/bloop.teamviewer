@@ -18,6 +18,8 @@
   <ItemGroup>
     <Page Include="**\*.xaml" SubType="Designer" Generator="MSBuild:Compile" />
     <None Remove="**\*.xaml" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Xaml" />
     <Reference Include="WindowsBase" />
     <Compile Update="**\*.xaml.cs" SubType="Designer" DependentUpon="%(Filename)" />
   </ItemGroup>
@@ -26,6 +28,9 @@
     <None Update="Images\*.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <Compile Update="TeamViewerPluginSettings.xaml.cs">
+      <DependentUpon>TeamViewerPluginSettings.xaml</DependentUpon>
+    </Compile>
     <None Update="plugin.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

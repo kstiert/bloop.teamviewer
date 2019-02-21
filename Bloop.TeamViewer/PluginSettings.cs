@@ -2,7 +2,7 @@
 using System.IO;
 using System;
 
-namespace Bloop.GitHub
+namespace Bloop.TeamViewer
 {
     public class PluginSettings
     {

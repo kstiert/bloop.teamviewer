@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Bloop.TeamViewer": {
+      "commandName": "Executable",
+      "executablePath": "..\\..\\Bloop.exe"
+    }
+  }
+}

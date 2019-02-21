@@ -1,14 +1,13 @@
-﻿using System.Collections.Generic;
-using System.Windows.Controls;
+﻿using System.Windows.Controls;
 
-namespace Bloop.GitHub
+namespace Bloop.TeamViewer
 {
     /// <summary>
     /// Interaction logic for GitHubPluginSettings.xaml
     /// </summary>
     public partial class TeamViewerPluginSettings : UserControl
     {
-        public GitHubPluginSettings(IDictionary<string, IShell> shells)
+        public TeamViewerPluginSettings()
         {
             InitializeComponent();
             Token.Text = PluginSettings.Instance.Token;
